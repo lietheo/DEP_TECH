@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <title>Analyse des Aléas et Risques Territoriaux - Cercles GeoJSON</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        /* --- Styles de Structure, Contrôles, Légende et Tableau --- */
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0; 
+            display: flex; 
+            flex-direction: row; 
+            height: 100vh; 
+            overflow: hidden; 
+            color: #333; /* Couleur de base du texte */
+        }
+
+        #map { 
+            flex: 3; 
+            min-width: 600px; 
+            height: 100%; 
+        }
+        
+        #controls { 
+            flex: 1; 
+            padding: 20px; 
+            background-color: #f8f9fa; 
+            min-width: 320px; 
+            box-sizing: border-box; 
+            overflow-y: auto; 
+            height: 100%; 
+            display: flex;
+            flex-direction: column; 
+        }
+
+        #results-container { 
+            flex-shrink: 0; 
+            padding-top: 5px; 
+            margin-top: 15px;
+            border-top: 1px solid #ddd;
+            display: flex; 
+            flex-direction: column; 
+        }
+
+        h2, h3, h4 { 
+            color: #333; /* Garantit le noir pour les titres */
+        }
+        
+        h2 { 
+            margin-top: 0; 
+            margin-bottom: 5px; 
+            padding-bottom: 5px; 
+            border-bottom: 1px solid #eee; 
+            font-weight: 600; 
+        }
+        
+        h3 {
+            border-bottom: 1px solid #eee; 
+            padding-bottom: 10px; 
+            margin-top: 20px; 
+            margin-bottom: 15px; 
+            font-weight: 600;
+        }
+
+        #communeTableContainer h4 {
+            font-size: 1.1em;
+            margin-top: 10px; 
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        
+        #risk-selector-container {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 15px;
+            gap: 10px;
+        }
+
+        .risk-label {
+            flex-grow: 1;
+            text-align: center;
+            padding: 10px 5px;
+            border: 2px solid #ccc;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 500;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: white;
+        }
+
+        .risk-label img {
+            width: 30px;
+            height: 30px;
+            margin-bottom: 5px;
+        }
+
+        .risk-radio {
+            display: none;
+        }
+
+        .risk-radio:checked + .risk-label {
+            border-color: #007bff;
+            background-color: #e6f0ff;
+            box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+            color: #007bff;
+        }
+        
+        /* Styles spécifiques à la légende des couleurs */
+        .color-legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+        .color-sample {
+            width: 15px;
+            height: 15px;
+            border: 1px solid #555;
+            margin-right: 8px;
+            border-radius: 50%;
+        }
+
+        /* Styles du Tableau */
+        #communeTableContainer table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 10px; 
+            font-size: 0.85em; 
+            table-layout: auto; 
+            color: black; /* Texte du tableau en noir */
+        }
+        #communeTableContainer th, #communeTableContainer td { 
+            border: 1px solid #ddd; 
+            padding: 8px; 
+            text-align: left; 
+            word-wrap: break-word; 
+        }
+        #communeTableContainer th:last-child, #communeTableContainer td:last-child { 
+            text-align: center;
+        }
+        #communeTableContainer th { 
+            background-color: #e9ecef; 
+            font-weight: 600; 
+            line-height: 1.2; 
+        }
+        #communeTableContainer tbody tr:nth-child(odd) { background-color: #f8f9fa; }
+        
+        /* Texte du Pop-up en noir par défaut */
+        .leaflet-popup-content-wrapper { color: black; }
+
+
+        .leaflet-control-home {
+            background-color: white; width: 26px; height: 26px; line-height: 26px; text-align: center;
+            cursor: pointer; border-radius: 4px; box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+            margin-top: 2px; font-size: 14px; font-weight: bold;
+        }
+        .leaflet-control-home:hover { background-color: #f4f4f4; }
+        
+        .leaflet-popup-content-wrapper { border-radius: 4px; }
+    </style>
+</head>
+<body>
+    
+    <div id="controls">
+        <h2>Sélection de l'Aléa / Risque</h2>
+        
+        <div id="risk-selector-container">
+            
+            <input type="radio" id="risk-nuclear" name="risk-selector" class="risk-radio" value="nuclear" checked onchange="toggleRiskFromRadio(this.value)">
+            <label for="risk-nuclear" class="risk-label">
+                <img src="NUCLEAIRE.png" alt="Nucléaire">
+                Nucléaire
+            </label>
+            
+            <input type="radio" id="risk-industrial" name="risk-selector" class="risk-radio" value="industrial" onchange="toggleRiskFromRadio(this.value)">
+            <label for="risk-industrial" class="risk-label">
+                <img src="INDUS.png" alt="Industriel">
+                Industriel
+            </label>
+
+            <input type="radio" id="risk-seveso" name="risk-selector" class="risk-radio" value="seveso" onchange="toggleRiskFromRadio(this.value)">
+            <label for="risk-seveso" class="risk-label">
+                <img src="SEVESO.png" alt="Seveso">
+                Seveso
+            </label>
+        </div>
+        
+        <p>Aléa / Risque Actif : <strong id="activeRiskName">Nucléaire</strong></p>
+
+        <div id="legend-container">
+            <h3>Légende Actuelle</h3>
+            <div id="currentLegendContent"></div>
+            </div>
+        
+        <div id="results-container">
+            <div id="communeTableContainer">
+            </div>
+        </div>
+        
+    </div>
+
+    <div id="map"></div>
+    
+    <script src="CENTROIDE.json"></script> 
+    
+    <script>
+// ----------------------------------------------------------------------------------
+// --- Configuration et Données ---
+// ----------------------------------------------------------------------------------
+
+let geojsonData = null; 
+
+const FIELD_NOM_DEPARTEMENT = "nom"; 
+const CHAMP_INSEE_DEPARTEMENT = "code_insee"; 
+const FIELD_NUCLEAR = "Nucléaire";      
+const FIELD_INDUSTRIAL = "Risque_ind";  
+const FIELD_SEVESO_DEP = "Seveso 202"; 
+
+const DISPLAY_NAMES = {
+    'nuclear': 'Nucléaire',
+    'industrial': 'Industriel',
+    'seveso': 'Seveso'
+};
+
+const MAX_RISK_NUCLEAR = 100; 
+const MAX_RISK_INDUSTRIAL = 300; 
+const MAX_RISK_SEVESO = 75; 
+
+const MAX_CIRCLE_RADIUS = 40; 
+const MIN_CIRCLE_RADIUS = 5; 
+
+// Palettes de couleurs (4 classes : Du faible [clair] au fort [sombre])
+const COLOR_PALETTES = {
+    'nuclear': ['#FFFACD', '#FFD700', '#DAA520', '#B8860B'], // Jaune clair à moutarde
+    'industrial': ['#FFC0CB', '#FF6347', '#CD5C5C', '#B22222'], // Rose clair à rouge brique
+    'seveso': ['#E6E6FA', '#BA55D3', '#9370DB', '#8A2BE2']  // Lavande clair à violet foncé
+};
+
+
+const LAYERS_MAP = {
+    'nuclear': { circles: null, name: 'nuclear', field: FIELD_NUCLEAR, maxCount: MAX_RISK_NUCLEAR, theme: COLOR_PALETTES.nuclear, displayName: DISPLAY_NAMES.nuclear },
+    'industrial': { circles: null, name: 'industrial', field: FIELD_INDUSTRIAL, maxCount: MAX_RISK_INDUSTRIAL, theme: COLOR_PALETTES.industrial, displayName: DISPLAY_NAMES.industrial },
+    'seveso': { circles: null, name: 'seveso', field: FIELD_SEVESO_DEP, maxCount: MAX_RISK_SEVESO, theme: COLOR_PALETTES.seveso, displayName: DISPLAY_NAMES.seveso }
+};
+
+const INITIAL_VIEW = [46.603354, 1.888334];
+const INITIAL_ZOOM = 6; 
+
+let currentActiveRiskType = 'nuclear'; 
+var map; 
+
+// ------------------------------------------------
+// --- Fonctions de Style et de Couche GeoJSON ---
+// ------------------------------------------------
+
+function getCircleRadius(count, maxCount) {
+    if (count === 0 || count === null) return 0;
+    const ratio = Math.min(count / maxCount, 1);
+    return MIN_CIRCLE_RADIUS + (MAX_CIRCLE_RADIUS - MIN_CIRCLE_RADIUS) * ratio;
+}
+
+function getColor(count, maxCount, palette) {
+    if (count === 0 || count === null) return '#ccc'; 
+    
+    const numClasses = palette.length; 
+    const normalizedCount = Math.min(count, maxCount);
+    
+    const classSize = maxCount / numClasses;
+    
+    let index = Math.ceil(normalizedCount / classSize) - 1;
+
+    index = Math.max(0, Math.min(numClasses - 1, index)); 
+    
+    return palette[index];
+}
+
+
+function styleFeature(feature, riskData) {
+    const riskField = riskData.field;
+    const maxCount = riskData.maxCount;
+    const palette = riskData.theme; 
+    
+    const riskCount = feature.properties[riskField] || 0;
+    const radius = getCircleRadius(riskCount, maxCount);
+    const color = getColor(riskCount, maxCount, palette); // Couleur utilisée uniquement sur la carte
+
+    if (radius === 0) {
+        return { opacity: 0, fillOpacity: 0 };
+    }
+    
+    return {
+        radius: radius,
+        fillColor: color, 
+        color: '#555',                  
+        weight: 1,
+        opacity: 1,
+        fillOpacity: 0.85
+    };
+}
+
+function filterFeatures(feature, riskData) {
+    const riskField = riskData.field;
+    return (feature.properties[riskField] || 0) > 0;
+}
+
+function createDepartmentGeoJSONLayer(riskType) {
+    const riskData = LAYERS_MAP[riskType];
+    
+    if (!geojsonData) {
+        console.error("Les données GeoJSON n'ont pas été chargées.");
+        return L.layerGroup(); 
+    }
+
+    const layer = L.geoJSON(geojsonData, {
+        filter: function(feature) {
+            return filterFeatures(feature, riskData);
+        },
+        pointToLayer: function (feature, latlng) {
+            const style = styleFeature(feature, riskData);
+            
+            if (style.opacity === 0) return L.marker(latlng, { opacity: 0 }); 
+
+            return L.circleMarker(latlng, style);
+        },
+        onEachFeature: function (feature, layer) {
+             if (layer instanceof L.CircleMarker) {
+                 const popupContent = createPopupContent(feature.properties, riskData);
+                 layer.bindPopup(popupContent, {
+                     closeButton: false,
+                     offset: L.point(0, -5)
+                 });
+ 
+                 layer.on({
+                     mouseover: onCircleMouseOver,
+                     mouseout: onCircleMouseOut
+                 });
+             }
+        }
+    });
+    
+    return layer;
+}
+
+function onCircleMouseOver(e) {
+    var layer = e.target;
+    layer.setStyle({
+        weight: 3, 
+        fillOpacity: 1.0,
+        color: 'black' 
+    });
+    layer.openPopup(e.latlng);
+}
+
+function onCircleMouseOut(e) {
+    var layer = e.target;
+    layer.setStyle({
+        weight: 1, 
+        fillOpacity: 0.85,
+        color: '#555' 
+    });
+    layer.closePopup();
+}
+
+// --- Pop-ups, Tableau et Contrôles (Fonctions de données) ---
+
+/**
+ * Le texte et le nombre dans le pop-up sont noirs (grâce au CSS et à l'absence de style coloré ici)
+ */
+function createPopupContent(props, riskData) {
+    const riskDisplayName = riskData.displayName;
+    const fieldToUse = riskData.field; 
+    const depName = props[FIELD_NOM_DEPARTEMENT];
+    const depCode = props[CHAMP_INSEE_DEPARTEMENT];
+    const riskCount = props[fieldToUse] || 0; 
+    
+    return `<strong>Département : ${depName} (${depCode})</strong><br>
+            Communes soumises à aléa / risque ${riskDisplayName} : 
+            <strong>${riskCount}</strong>`;
+}
+
+/**
+ * Le texte et le nombre dans le tableau sont noirs (grâce au CSS et à l'absence de style coloré ici)
+ */
+function updateDepartmentTable(riskType) {
+    const riskData = LAYERS_MAP[riskType];
+    const activeRiskField = riskData.field;
+    const activeRiskDisplayName = riskData.displayName;
+    
+    const container = document.getElementById('communeTableContainer');
+    
+    if (!geojsonData || geojsonData.features.length === 0) {
+        container.innerHTML = `<p>Données indisponibles.</p>`;
+        return;
+    }
+
+    const concernedFeatures = geojsonData.features
+        .filter(f => (f.properties[activeRiskField] || 0) > 0)
+        .sort((a, b) => (b.properties[activeRiskField] || 0) - (a.properties[activeRiskField] || 0));
+
+    if (concernedFeatures.length === 0) {
+        container.innerHTML = `<p>Aucun département n'est répertorié avec un aléa / risque ${activeRiskDisplayName}.</p>`;
+        return;
+    }
+    
+    let tableHTML = `<h4>Départements concernés (${concernedFeatures.length}) :</h4><table><thead><tr>`;
+    tableHTML += `<th>Département</th><th>Nb Communes Soumises</th>`; 
+    tableHTML += '</tr></thead><tbody>';
+
+    concernedFeatures.forEach(function (feature) {
+        const props = feature.properties;
+        const riskValue = props[activeRiskField] || 0;
+        
+        tableHTML += '<tr>';
+        // Texte du département
+        tableHTML += `<td>${props[FIELD_NOM_DEPARTEMENT]} (${props[CHAMP_INSEE_DEPARTEMENT]})</td>`;
+        // Nombre de communes (sans style de couleur)
+        tableHTML += `<td style="text-align: center; font-weight: bold;">${riskValue}</td>`;
+        tableHTML += '</tr>';
+    });
+
+    tableHTML += '</tbody></table>';
+    container.innerHTML = tableHTML;
+}
+
+/**
+ * Affiche la légende combinant la taille du cercle (quantité) et la couleur (intensité)
+ */
+function renderCombinedLegend(riskType) {
+    const riskData = LAYERS_MAP[riskType];
+    const maxCount = riskData.maxCount;
+    const palette = riskData.theme;
+    const numClasses = palette.length; 
+    const classSize = maxCount / numClasses;
+    const container = document.getElementById('currentLegendContent');
+    
+    // Contenu initial
+    let content = `<h4>Aléa / Risque ${riskData.displayName}</h4>`;
+    content += `<p style="font-weight: bold; margin-bottom: 5px; border-bottom: 1px dashed #ccc;">Intensité et Quantité (${numClasses} classes) :</p>`;
+
+    // Calcul des rayons pour les 4 classes
+    const circleRadii = [];
+    for (let i = 0; i < numClasses; i++) {
+        let representativeCount = Math.round((i * classSize) + (classSize / 2));
+        if (i === numClasses - 1) {
+            representativeCount = maxCount; 
+        } else if (i === 0) {
+            representativeCount = Math.round(classSize/2);
+            if (representativeCount === 0) representativeCount = 1; 
+        }
+        circleRadii.push(getCircleRadius(representativeCount, maxCount));
+    }
+    
+    const maxRadiusForDisplay = circleRadii[numClasses - 1]; 
+
+    // Création des éléments de légende (4 classes)
+    for (let i = numClasses - 1; i >= 0; i--) {
+        const color = palette[i];
+        const radius = circleRadii[i]; 
+        
+        const lowerBound = Math.round(i * classSize) + (i === 0 ? 1 : 0);
+        const upperBound = Math.round((i + 1) * classSize);
+
+        let label;
+        if (i === numClasses - 1) {
+            label = `${maxCount}+ Communes (Max)`;
+        } else if (i === 0) {
+            label = `1 - ${upperBound} Communes (Faible)`;
+        } else {
+            label = `${lowerBound} - ${upperBound} Communes`;
+        }
+
+        const svgSize = maxRadiusForDisplay * 2;
+        const cx = maxRadiusForDisplay;
+        const cy = maxRadiusForDisplay;
+        
+        content += `
+            <div style="display: flex; align-items: center; margin-bottom: 8px; height: ${svgSize}px;">
+                <svg height="${svgSize}" width="${svgSize + 10}" style="margin-right: 10px; flex-shrink: 0;">
+                    <circle cx="${cx}" cy="${cy}" r="${radius}" 
+                            fill="${color}" fill-opacity="0.85" 
+                            stroke="#555" stroke-width="1" />
+                </svg>
+                <span style="font-weight: 500; color: black;">${label}</span>
+            </div>
+        `;
+    }
+
+    // Ligne pour l'absence de risque
+    content += `
+        <div style="margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 10px;">
+             <p style="font-weight: bold; margin-bottom: 5px;">Absence / Donnée Non Pertinente :</p>
+             <div class="color-legend-item">
+                <span class="color-sample" style="background-color: #ccc; border-color: #ccc;"></span>
+                <span style="color: black;">Aucune commune soumise (Ou donnée nulle)</span>
+            </div>
+        </div>
+    `;
+
+    container.innerHTML = content;
+}
+
+
+function toggleRisk(newRiskType) {
+    
+    const oldRiskType = currentActiveRiskType;
+    currentActiveRiskType = newRiskType;
+    
+    const oldLayers = LAYERS_MAP[oldRiskType];
+    if (oldLayers.circles && map.hasLayer(oldLayers.circles)) {
+        map.removeLayer(oldLayers.circles);
+    }
+    
+    const newLayers = LAYERS_MAP[newRiskType];
+    if (newLayers.circles) {
+        newLayers.circles.addTo(map); 
+        
+        renderCombinedLegend(newRiskType);
+        updateDepartmentTable(newRiskType); 
+    }
+}
+
+function toggleRiskFromRadio(riskType) {
+    const riskName = LAYERS_MAP[riskType].displayName;
+    document.getElementById('activeRiskName').textContent = riskName;
+    
+    toggleRisk(riskType);
+}
+
+function resetMapView() { 
+    const activeRiskType = currentActiveRiskType;
+    
+    map.flyTo(INITIAL_VIEW, INITIAL_ZOOM);
+    
+    renderCombinedLegend(activeRiskType);
+    updateDepartmentTable(activeRiskType); 
+}
+
+// ------------------------------------------------
+// --- INITIALISATION ---
+// ------------------------------------------------
+
+function loadAndInitialize() {
+    if (typeof centroide === 'undefined') {
+        console.error("ERREUR CRITIQUE: La variable 'centroide' n'est pas définie. Vérifiez le chemin et le contenu du fichier CENTROIDE.json.");
+        document.getElementById('communeTableContainer').innerHTML = `<p style="color:red;">ERREUR: CENTROIDE.json non chargé ou variable non trouvée.</p>`;
+        return;
+    }
+    
+    geojsonData = centroide;
+    
+    map = L.map('map').setView(INITIAL_VIEW, INITIAL_ZOOM); 
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' }).addTo(map);
+
+    for (const key in LAYERS_MAP) {
+        LAYERS_MAP[key].circles = createDepartmentGeoJSONLayer(key);
+    }
+
+    var HomeControl = L.Control.extend({
+        options: { position: 'topleft' },
+        onAdd: function(map) {
+            var container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-home');
+            container.innerHTML = '🏠';
+            container.title = 'Retour à la vue initiale (Accueil)';
+            L.DomEvent.on(container, 'click', function() { resetMapView(); });
+            return container;
+        }
+    });
+    map.addControl(new HomeControl());
+
+    const defaultRisk = document.querySelector('input[name="risk-selector"]:checked').value;
+    toggleRiskFromRadio(defaultRisk); 
+}
+
+window.onload = loadAndInitialize;
+    </script>
+    
+</body>
+</html>
