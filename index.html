@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <title>Analyse des Aléas et Risques Territoriaux - Cercles GeoJSON</title>
+    <title>Analyse des Aléas et Risques Territoriaux</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
@@ -17,7 +17,7 @@
             flex-direction: row; 
             height: 100vh; 
             overflow: hidden; 
-            color: #333; /* Couleur de base du texte */
+            color: #333; 
         }
 
         #map { 
@@ -38,18 +38,7 @@
             flex-direction: column; 
         }
 
-        #results-container { 
-            flex-shrink: 0; 
-            padding-top: 5px; 
-            margin-top: 15px;
-            border-top: 1px solid #ddd;
-            display: flex; 
-            flex-direction: column; 
-        }
-
-        h2, h3, h4 { 
-            color: #333; /* Garantit le noir pour les titres */
-        }
+        h2, h3, h4 { color: #333; }
         
         h2 { 
             margin-top: 0; 
@@ -113,7 +102,7 @@
             color: #007bff;
         }
         
-        /* Styles spécifiques à la légende des couleurs */
+        /* Styles spécifiques à la légende */
         .color-legend-item {
             display: flex;
             align-items: center;
@@ -134,7 +123,7 @@
             margin-top: 10px; 
             font-size: 0.85em; 
             table-layout: auto; 
-            color: black; /* Texte du tableau en noir */
+            color: black; 
         }
         #communeTableContainer th, #communeTableContainer td { 
             border: 1px solid #ddd; 
@@ -152,24 +141,34 @@
         }
         #communeTableContainer tbody tr:nth-child(odd) { background-color: #f8f9fa; }
         
-        /* Texte du Pop-up en noir par défaut */
         .leaflet-popup-content-wrapper { color: black; }
 
 
-        .leaflet-control-home {
+        .leaflet-control-home, .leaflet-control-share {
             background-color: white; width: 26px; height: 26px; line-height: 26px; text-align: center;
             cursor: pointer; border-radius: 4px; box-shadow: 0 1px 5px rgba(0,0,0,0.4);
             margin-top: 2px; font-size: 14px; font-weight: bold;
         }
-        .leaflet-control-home:hover { background-color: #f4f4f4; }
+        .leaflet-control-home:hover, .leaflet-control-share:hover { background-color: #f4f4f4; }
         
         .leaflet-popup-content-wrapper { border-radius: 4px; }
+
+        /* Styles pour le widget de coordonnées (Mouse Position) */
+        #mouse-position-control {
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 4px 8px;
+            font-size: 12px;
+            font-family: monospace;
+            border-radius: 4px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+            cursor: default;
+        }
     </style>
 </head>
 <body>
     
     <div id="controls">
-        <h2>Sélection de l'Aléa / Risque</h2>
+        <h2>Sélection de Risque Technologique</h2>
         
         <div id="risk-selector-container">
             
@@ -192,7 +191,7 @@
             </label>
         </div>
         
-        <p>Aléa / Risque Actif : <strong id="activeRiskName">Nucléaire</strong></p>
+        <p>Risque Actif : <strong id="activeRiskName">Nucléaire</strong></p>
 
         <div id="legend-container">
             <h3>Légende Actuelle</h3>
@@ -221,7 +220,7 @@ const FIELD_NOM_DEPARTEMENT = "nom";
 const CHAMP_INSEE_DEPARTEMENT = "code_insee"; 
 const FIELD_NUCLEAR = "Nucléaire";      
 const FIELD_INDUSTRIAL = "Risque_ind";  
-const FIELD_SEVESO_DEP = "Seveso 202"; 
+const FIELD_SEVESO_DEP = "Seveso 202";  
 
 const DISPLAY_NAMES = {
     'nuclear': 'Nucléaire',
@@ -236,18 +235,17 @@ const MAX_RISK_SEVESO = 75;
 const MAX_CIRCLE_RADIUS = 40; 
 const MIN_CIRCLE_RADIUS = 5; 
 
-// Palettes de couleurs (4 classes : Du faible [clair] au fort [sombre])
-const COLOR_PALETTES = {
-    'nuclear': ['#FFFACD', '#FFD700', '#DAA520', '#B8860B'], // Jaune clair à moutarde
-    'industrial': ['#FFC0CB', '#FF6347', '#CD5C5C', '#B22222'], // Rose clair à rouge brique
-    'seveso': ['#E6E6FA', '#BA55D3', '#9370DB', '#8A2BE2']  // Lavande clair à violet foncé
+// Configuration : COULEUR UNIQUE PAR RISQUE
+const THEME_COLORS = {
+    'nuclear': '#E6C229', 
+    'industrial': '#7E7973', 
+    'seveso': '#6B8E23' 
 };
 
-
 const LAYERS_MAP = {
-    'nuclear': { circles: null, name: 'nuclear', field: FIELD_NUCLEAR, maxCount: MAX_RISK_NUCLEAR, theme: COLOR_PALETTES.nuclear, displayName: DISPLAY_NAMES.nuclear },
-    'industrial': { circles: null, name: 'industrial', field: FIELD_INDUSTRIAL, maxCount: MAX_RISK_INDUSTRIAL, theme: COLOR_PALETTES.industrial, displayName: DISPLAY_NAMES.industrial },
-    'seveso': { circles: null, name: 'seveso', field: FIELD_SEVESO_DEP, maxCount: MAX_RISK_SEVESO, theme: COLOR_PALETTES.seveso, displayName: DISPLAY_NAMES.seveso }
+    'nuclear': { circles: null, name: 'nuclear', field: FIELD_NUCLEAR, maxCount: MAX_RISK_NUCLEAR, theme: THEME_COLORS.nuclear, displayName: DISPLAY_NAMES.nuclear },
+    'industrial': { circles: null, name: 'industrial', field: FIELD_INDUSTRIAL, maxCount: MAX_RISK_INDUSTRIAL, theme: THEME_COLORS.industrial, displayName: DISPLAY_NAMES.industrial },
+    'seveso': { circles: null, name: 'seveso', field: FIELD_SEVESO_DEP, maxCount: MAX_RISK_SEVESO, theme: THEME_COLORS.seveso, displayName: DISPLAY_NAMES.seveso }
 };
 
 const INITIAL_VIEW = [46.603354, 1.888334];
@@ -266,30 +264,13 @@ function getCircleRadius(count, maxCount) {
     return MIN_CIRCLE_RADIUS + (MAX_CIRCLE_RADIUS - MIN_CIRCLE_RADIUS) * ratio;
 }
 
-function getColor(count, maxCount, palette) {
-    if (count === 0 || count === null) return '#ccc'; 
-    
-    const numClasses = palette.length; 
-    const normalizedCount = Math.min(count, maxCount);
-    
-    const classSize = maxCount / numClasses;
-    
-    let index = Math.ceil(normalizedCount / classSize) - 1;
-
-    index = Math.max(0, Math.min(numClasses - 1, index)); 
-    
-    return palette[index];
-}
-
-
 function styleFeature(feature, riskData) {
     const riskField = riskData.field;
     const maxCount = riskData.maxCount;
-    const palette = riskData.theme; 
-    
+    const color = riskData.theme; 
+
     const riskCount = feature.properties[riskField] || 0;
     const radius = getCircleRadius(riskCount, maxCount);
-    const color = getColor(riskCount, maxCount, palette); // Couleur utilisée uniquement sur la carte
 
     if (radius === 0) {
         return { opacity: 0, fillOpacity: 0 };
@@ -298,7 +279,7 @@ function styleFeature(feature, riskData) {
     return {
         radius: radius,
         fillColor: color, 
-        color: '#555',                  
+        color: '#555',                       
         weight: 1,
         opacity: 1,
         fillOpacity: 0.85
@@ -370,9 +351,6 @@ function onCircleMouseOut(e) {
 
 // --- Pop-ups, Tableau et Contrôles (Fonctions de données) ---
 
-/**
- * Le texte et le nombre dans le pop-up sont noirs (grâce au CSS et à l'absence de style coloré ici)
- */
 function createPopupContent(props, riskData) {
     const riskDisplayName = riskData.displayName;
     const fieldToUse = riskData.field; 
@@ -381,13 +359,10 @@ function createPopupContent(props, riskData) {
     const riskCount = props[fieldToUse] || 0; 
     
     return `<strong>Département : ${depName} (${depCode})</strong><br>
-            Communes soumises à aléa / risque ${riskDisplayName} : 
+            Communes soumises à un risque ${riskDisplayName} : 
             <strong>${riskCount}</strong>`;
 }
 
-/**
- * Le texte et le nombre dans le tableau sont noirs (grâce au CSS et à l'absence de style coloré ici)
- */
 function updateDepartmentTable(riskType) {
     const riskData = LAYERS_MAP[riskType];
     const activeRiskField = riskData.field;
@@ -405,7 +380,7 @@ function updateDepartmentTable(riskType) {
         .sort((a, b) => (b.properties[activeRiskField] || 0) - (a.properties[activeRiskField] || 0));
 
     if (concernedFeatures.length === 0) {
-        container.innerHTML = `<p>Aucun département n'est répertorié avec un aléa / risque ${activeRiskDisplayName}.</p>`;
+        container.innerHTML = `<p>Aucun département n'est répertorié avec un risque ${activeRiskDisplayName}.</p>`;
         return;
     }
     
@@ -418,9 +393,7 @@ function updateDepartmentTable(riskType) {
         const riskValue = props[activeRiskField] || 0;
         
         tableHTML += '<tr>';
-        // Texte du département
         tableHTML += `<td>${props[FIELD_NOM_DEPARTEMENT]} (${props[CHAMP_INSEE_DEPARTEMENT]})</td>`;
-        // Nombre de communes (sans style de couleur)
         tableHTML += `<td style="text-align: center; font-weight: bold;">${riskValue}</td>`;
         tableHTML += '</tr>';
     });
@@ -429,81 +402,58 @@ function updateDepartmentTable(riskType) {
     container.innerHTML = tableHTML;
 }
 
-/**
- * Affiche la légende combinant la taille du cercle (quantité) et la couleur (intensité)
- */
-function renderCombinedLegend(riskType) {
+// FONCTION DE LÉGENDE MISE À JOUR (SIMPLE TAILLE - Texte court)
+function renderSimpleSizeLegend(riskType) {
     const riskData = LAYERS_MAP[riskType];
+    
     const maxCount = riskData.maxCount;
-    const palette = riskData.theme;
-    const numClasses = palette.length; 
-    const classSize = maxCount / numClasses;
-    const container = document.getElementById('currentLegendContent');
+    const maxRadius = MAX_CIRCLE_RADIUS;
+    const minRadius = MIN_CIRCLE_RADIUS;
+    const middleCount = Math.round(maxCount / 2);
+    const middleRadius = getCircleRadius(middleCount, maxCount);
+    const color = riskData.theme; 
+
+    let content = `<h4>Quantité de Risque ${riskData.displayName}</h4>`;
     
-    // Contenu initial
-    let content = `<h4>Aléa / Risque ${riskData.displayName}</h4>`;
-    content += `<p style="font-weight: bold; margin-bottom: 5px; border-bottom: 1px dashed #ccc;">Intensité et Quantité (${numClasses} classes) :</p>`;
+    content += `<p>La taille du cercle est un indicateur visuel proportionnel représentant le Nombre de Communes soumises au risque par département.</p>`;
 
-    // Calcul des rayons pour les 4 classes
-    const circleRadii = [];
-    for (let i = 0; i < numClasses; i++) {
-        let representativeCount = Math.round((i * classSize) + (classSize / 2));
-        if (i === numClasses - 1) {
-            representativeCount = maxCount; 
-        } else if (i === 0) {
-            representativeCount = Math.round(classSize/2);
-            if (representativeCount === 0) representativeCount = 1; 
-        }
-        circleRadii.push(getCircleRadius(representativeCount, maxCount));
-    }
-    
-    const maxRadiusForDisplay = circleRadii[numClasses - 1]; 
+    content += `<div style="padding-top: 10px;">`;
+    content += `<p style="font-weight: bold; margin-bottom: 5px; border-bottom: 1px dashed #ccc;">Échelle des Tailles (Nombre de Communes):</p>`;
 
-    // Création des éléments de légende (4 classes)
-    for (let i = numClasses - 1; i >= 0; i--) {
-        const color = palette[i];
-        const radius = circleRadii[i]; 
-        
-        const lowerBound = Math.round(i * classSize) + (i === 0 ? 1 : 0);
-        const upperBound = Math.round((i + 1) * classSize);
+    const sizeExamples = [
+        { count: maxCount + '+', radius: maxRadius },
+        { count: middleCount, radius: middleRadius },
+        { count: 1, radius: minRadius }
+    ];
 
-        let label;
-        if (i === numClasses - 1) {
-            label = `${maxCount}+ Communes (Max)`;
-        } else if (i === 0) {
-            label = `1 - ${upperBound} Communes (Faible)`;
-        } else {
-            label = `${lowerBound} - ${upperBound} Communes`;
-        }
-
-        const svgSize = maxRadiusForDisplay * 2;
-        const cx = maxRadiusForDisplay;
-        const cy = maxRadiusForDisplay;
+    sizeExamples.forEach(ex => {
+        const svgSize = maxRadius * 2;
         
         content += `
-            <div style="display: flex; align-items: center; margin-bottom: 8px; height: ${svgSize}px;">
-                <svg height="${svgSize}" width="${svgSize + 10}" style="margin-right: 10px; flex-shrink: 0;">
-                    <circle cx="${cx}" cy="${cy}" r="${radius}" 
-                            fill="${color}" fill-opacity="0.85" 
-                            stroke="#555" stroke-width="1" />
+            <div style="display: flex; align-items: center; margin-bottom: 15px; height: ${svgSize}px;">
+                <svg width="${svgSize + 10}" height="${svgSize}" style="margin-right: 10px; flex-shrink: 0;">
+                    <circle cx="${maxRadius}" cy="${maxRadius}" r="${ex.radius}" 
+                            fill="${color}" fill-opacity="0.85" stroke="#555" stroke-width="1" />
                 </svg>
-                <span style="font-weight: 500; color: black;">${label}</span>
+                <span style="font-weight: bold;">${ex.count}</span>
             </div>
         `;
-    }
-
+    });
+    
+    content += `</div>`; 
+    
     // Ligne pour l'absence de risque
     content += `
         <div style="margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 10px;">
-             <p style="font-weight: bold; margin-bottom: 5px;">Absence / Donnée Non Pertinente :</p>
-             <div class="color-legend-item">
+            <p style="font-weight: bold; margin-bottom: 5px;">Absence / Donnée Non Pertinente :</p>
+            <div class="color-legend-item">
                 <span class="color-sample" style="background-color: #ccc; border-color: #ccc;"></span>
                 <span style="color: black;">Aucune commune soumise (Ou donnée nulle)</span>
             </div>
         </div>
     `;
-
-    container.innerHTML = content;
+    
+    document.getElementById('currentLegendContent').innerHTML = content;
 }
 
 
@@ -521,7 +471,7 @@ function toggleRisk(newRiskType) {
     if (newLayers.circles) {
         newLayers.circles.addTo(map); 
         
-        renderCombinedLegend(newRiskType);
+        renderSimpleSizeLegend(newRiskType); 
         updateDepartmentTable(newRiskType); 
     }
 }
@@ -538,13 +488,67 @@ function resetMapView() {
     
     map.flyTo(INITIAL_VIEW, INITIAL_ZOOM);
     
-    renderCombinedLegend(activeRiskType);
+    renderSimpleSizeLegend(activeRiskType); 
     updateDepartmentTable(activeRiskType); 
 }
 
 // ------------------------------------------------
 // --- INITIALISATION ---
 // ------------------------------------------------
+
+// Définition d'un contrôle de coordonnées simple (Mouse Position)
+var MousePositionControl = L.Control.extend({
+    options: {
+        position: 'bottomleft',
+        separator: ' | ',
+        emptyString: 'Survolez la carte',
+        numDigits: 4,
+        prefix: "Coordonnées: "
+    },
+
+    onAdd: function (map) {
+        this._container = L.DomUtil.create('div', 'leaflet-control-mouseposition');
+        this._container.id = 'mouse-position-control';
+        L.DomEvent.disableClickPropagation(this._container);
+        map.on('mousemove', this._onMouseMove, this);
+        this._container.innerHTML = this.options.emptyString;
+        return this._container;
+    },
+
+    onRemove: function (map) {
+        map.off('mousemove', this._onMouseMove)
+    },
+
+    _onMouseMove: function (e) {
+        var lng = L.Util.formatNum(e.latlng.lng, this.options.numDigits);
+        var lat = L.Util.formatNum(e.latlng.lat, this.options.numDigits);
+        var value = this.options.prefix + lng + this.options.separator + lat;
+        this._container.innerHTML = value;
+    }
+});
+
+// Contrôle de Partage/Lien
+var ShareControl = L.Control.extend({
+    options: { position: 'topleft' },
+    onAdd: function(map) {
+        var container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-share');
+        container.innerHTML = '🔗'; // Icône de Lien/Chaîne
+        container.title = 'Copier l\'URL de la carte interactive pour le partage';
+        
+        L.DomEvent.on(container, 'click', function() {
+            try {
+                const shareUrl = window.location.href;
+                navigator.clipboard.writeText(shareUrl);
+                alert("Lien de la carte copié dans le presse-papiers :\n" + shareUrl);
+            } catch (err) {
+                console.error("Échec de la copie automatique du lien.", err);
+                alert("Impossible de copier le lien automatiquement. L'URL est : \n" + window.location.href);
+            }
+        });
+        return container;
+    }
+});
+
 
 function loadAndInitialize() {
     if (typeof centroide === 'undefined') {
@@ -556,12 +560,20 @@ function loadAndInitialize() {
     geojsonData = centroide;
     
     map = L.map('map').setView(INITIAL_VIEW, INITIAL_ZOOM); 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' }).addTo(map);
+    
+    // ATTRIBUTION MODIFIÉE : Ajout de la source de données Observatoire des Territoires
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', { 
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a> | Source: <a href="https://www.observatoire-des-territoires.gouv.fr/">Observatoire des Territoires</a>',
+        maxZoom: 19
+    }).addTo(map);
 
     for (const key in LAYERS_MAP) {
         LAYERS_MAP[key].circles = createDepartmentGeoJSONLayer(key);
     }
 
+    // --- Ajout des Widgets Cartographiques ---
+    
+    // 1. Contrôle Accueil (Home Control)
     var HomeControl = L.Control.extend({
         options: { position: 'topleft' },
         onAdd: function(map) {
@@ -573,7 +585,16 @@ function loadAndInitialize() {
         }
     });
     map.addControl(new HomeControl());
+    
+    // 4. Contrôle de Partage
+    map.addControl(new ShareControl());
 
+    // 2. Contrôle d'Échelle (Scale Control)
+    L.control.scale({ imperial: false, position: 'bottomright' }).addTo(map);
+
+    // 3. Contrôle de Coordonnées (Mouse Position)
+    map.addControl(new MousePositionControl());
+    
     const defaultRisk = document.querySelector('input[name="risk-selector"]:checked').value;
     toggleRiskFromRadio(defaultRisk); 
 }
